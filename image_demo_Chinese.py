@@ -10,9 +10,9 @@ from PIL import Image
 
 # 定义基本参数变量
 return_elements = ["input/input_data:0", "pred_sbbox/concat_2:0", "pred_mbbox/concat_2:0", "pred_lbbox/concat_2:0"]
-pb_file = "./checkpoint/yolov3_coco_v3.pb"   # "./checkpoint/yolov3_helmet.pb"   # 预测文件路径
-output_path = './demo_Chinese.jpg'
-num_classes = 80                 # 类别数
+pb_file = "./checkpoint/yolov3_bee.pb"   # "./checkpoint/yolov3_helmet.pb"   # 预测文件路径
+output_path = './output/000018.jpg'
+num_classes = 1                 # 类别数
 input_size = 608
 graph = tf.Graph()
 
@@ -42,7 +42,7 @@ def predict(image_path):
 
 
 if __name__ == "__main__":
-    image_path = "./docs/normal_images/yolov.jpg"
+    image_path = "./docs/normal_images/000018.jpg"
     predict(image_path)
 
 
