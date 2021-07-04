@@ -1,0 +1,26 @@
+<annotation>
+	<folder>bees</folder>
+	<filename>000001.jpg</filename>
+	<path>F:\Desktop\bees\000001.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>2048</width>
+		<height>1536</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>bee</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>975</xmin>
+			<ymin>425</ymin>
+			<xmax>1023</xmax>
+			<ymax>492</ymax>
+		</bndbox>
+	</object>
+</annotation>
