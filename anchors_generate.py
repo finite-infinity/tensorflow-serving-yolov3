@@ -74,7 +74,7 @@ def parse_xml(path):
         xmax = bbox.find('xmax').text
         ymax = bbox.find('ymax').text
 
-        name = str(names_dict[name])
+        name = str(name)
         # print(name)
         objects.extend([name, xmin, ymin, xmax, ymax])
     if len(objects) > 1:
