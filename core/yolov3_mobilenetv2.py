@@ -64,11 +64,11 @@ class YOLOV3(object):
     def __build_nework_mobile(self, input_data):
 
         feature_map_s, feature_map_m, feature_map_l = backbone.MobilenetV2(input_data, self.trainable)
-
+                                                                #backbone用的Mobil
         conv = common.convolutional(name='conv0', input_data=feature_map_l, filters_shape=(1, 1, 1280, 512),
-                                    trainable=self.trainable)
+                                    trainable=self.trainable)   #输出通道数不变
         conv = common.separable_conv(name='conv1', input_data=conv, input_c=512, output_c=1024,
-                                     trainable=self.trainable)
+                                     trainable=self.trainable)   #分层卷积
         conv = common.convolutional(name='conv2', input_data=conv, filters_shape=(1, 1, 1024, 512),
                                     trainable=self.trainable)
         conv = common.separable_conv(name='conv3', input_data=conv, input_c=512, output_c=1024,
@@ -88,11 +88,11 @@ class YOLOV3(object):
         conv = common.convolutional(name='conv7', input_data=conv, filters_shape=(1, 1, 512, 256),
                                     trainable=self.trainable)
         conv = common.upsample(name='upsample0', input_data=conv)
-        conv = common.route(name='route0', previous_output=feature_map_m, current_output=conv)
+        conv = common.route(name='route0', previous_output=feature_map_m, current_output=conv)  #添加renet连接通道
         # ----------**********---------- up sample and merge features map ----------**********----------
 
         conv = common.convolutional(name='conv8', input_data=conv, filters_shape=(1, 1, 96 + 256, 256),
-                                    trainable=self.trainable)
+                                    trainable=self.trainable)  
         conv = common.separable_conv('conv9', input_data=conv, input_c=256, output_c=512, trainable=self.trainable)
         conv = common.convolutional(name='conv10', input_data=conv, filters_shape=(1, 1, 512, 256),
                                     trainable=self.trainable)
@@ -145,10 +145,10 @@ class YOLOV3(object):
         gt_per_grid = conv_shape[3] // (5 + num_classes)
 
         conv_output = tf.reshape(conv_output, (batch_size, output_size, output_size, gt_per_grid, 5 + num_classes))
-        conv_raw_dx1dy1 = conv_output[:, :, :, :, 0:2]
-        conv_raw_dx2dy2 = conv_output[:, :, :, :, 2:4]
-        conv_raw_conf = conv_output[:, :, :, :, 4:5]
-        conv_raw_prob = conv_output[:, :, :, :, 5:]
+        conv_raw_dx1dy1 = conv_output[:, :, :, :, 0:2]  #xy
+        conv_raw_dx2dy2 = conv_output[:, :, :, :, 2:4]  #wh
+        conv_raw_conf = conv_output[:, :, :, :, 4:5]    #置信区间？
+        conv_raw_prob = conv_output[:, :, :, :, 5:]     #特征概率
 
         y = tf.tile(tf.range(output_size, dtype=tf.int32)[:, tf.newaxis], [1, output_size])
         x = tf.tile(tf.range(output_size, dtype=tf.int32)[tf.newaxis, :], [output_size, 1])
@@ -156,13 +156,13 @@ class YOLOV3(object):
         xy_grid = tf.tile(xy_grid[tf.newaxis, :, :, tf.newaxis, :], [batch_size, 1, 1, gt_per_grid, 1])
         xy_grid = tf.cast(xy_grid, tf.float32)
 
-        pred_xymin = (xy_grid + 0.5 - tf.exp(conv_raw_dx1dy1)) * stride
-        pred_xymax = (xy_grid + 0.5 + tf.exp(conv_raw_dx2dy2)) * stride
-        pred_corner = tf.concat([pred_xymin, pred_xymax], axis=-1)
+        pred_xymin = (xy_grid + 0.5 - tf.exp(conv_raw_dx1dy1)) * stride   #更新方式为+0.5防止<0+xy变化量 浮动为exp（置信区间）
+        pred_xymax = (xy_grid + 0.5 + tf.exp(conv_raw_dx2dy2)) * stride   #这里没用sigmoid直接判断，而是把区间写出来了
+        pred_corner = tf.concat([pred_xymin, pred_xymax], axis=-1)        #预测区间
 
-        pred_conf = tf.sigmoid(conv_raw_conf)
+        pred_conf = tf.sigmoid(conv_raw_conf)        #置信区间长度
 
-        pred_prob = tf.sigmoid(conv_raw_prob)
+        pred_prob = tf.sigmoid(conv_raw_prob)        #预测概率
 
         pred_bbox = tf.concat([pred_corner, pred_conf, pred_prob], axis=-1)
         return pred_bbox
