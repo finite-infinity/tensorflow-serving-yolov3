@@ -39,15 +39,15 @@ class YOLOV3(object):
 
         """
         with tf.variable_scope('pred_multi_scale'):
-            self.pred_multi_scale = tf.concat([tf.reshape(self.pred_sbbox, [-1, 85]),
-                                               tf.reshape(self.pred_mbbox, [-1, 85]),
-                                               tf.reshape(self.pred_lbbox, [-1, 85])], axis=0, name='concat')
+            self.pred_multi_scale = tf.concat([tf.reshape(self.pred_sbbox, [-1, self.num_class+5]),
+                                               tf.reshape(self.pred_mbbox, [-1, self.num_class+5]),
+                                               tf.reshape(self.pred_lbbox, [-1, self.num_class+5])], axis=0, name='concat')
         """
         # hand-coded the dimensions: if 608, use 19; if 416, use 13
         with tf.variable_scope('pred_multi_scale'):
-            self.pred_multi_scale = tf.concat([tf.reshape(self.pred_sbbox, [-1, 19, 19, 85]),
-                                               tf.reshape(self.pred_mbbox, [-1, 19, 19, 85]),
-                                               tf.reshape(self.pred_lbbox, [-1, 19, 19, 85])], axis=0, name='concat')
+            self.pred_multi_scale = tf.concat([tf.reshape(self.pred_sbbox, [-1, 19, 19, self.num_class+5]),
+                                               tf.reshape(self.pred_mbbox, [-1, 19, 19, self.num_class+5]),
+                                               tf.reshape(self.pred_lbbox, [-1, 19, 19, self.num_class+5])], axis=0, name='concat')
         # 说明,如果训练自己的数据集,将85改成 数据集里面的  类别数+5 ,再进行模型转化
     def __build_nework(self, input_data):
 
@@ -71,7 +71,7 @@ class YOLOV3(object):
         input_data = common.upsample(input_data, name='upsample0', method=self.upsample_method)
 
         with tf.variable_scope('route_1'):
-            # route_2 is -1*26*26*256, so input_data is -1*26*26*768
+            # route_2 is -1*26*26*256, so input_data is -1*26*26*768（512+256）
             input_data = tf.concat([input_data, route_2], axis=-1)
 
         input_data = common.convolutional(input_data, (1, 1, 768, 256), self.trainable, 'conv58')
@@ -88,7 +88,7 @@ class YOLOV3(object):
         input_data = common.upsample(input_data, name='upsample1', method=self.upsample_method)
 
         with tf.variable_scope('route_2'):
-            input_data = tf.concat([input_data, route_1], axis=-1)
+            input_data = tf.concat([input_data, route_1], axis=-1)  #添加模块间连接（resnet）
 
         input_data = common.convolutional(input_data, (1, 1, 384, 128), self.trainable, 'conv64')
         input_data = common.convolutional(input_data, (3, 3, 128, 256), self.trainable, 'conv65')
