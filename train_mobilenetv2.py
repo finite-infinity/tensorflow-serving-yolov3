@@ -184,8 +184,7 @@ class YoloTrain(object):
 
 if __name__ == '__main__':
     YoloTrain().train()
-    model = Yolov3()
-    model.save_weights(./checkpoint)
+    
 
 
 
