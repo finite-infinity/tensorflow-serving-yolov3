@@ -3,7 +3,7 @@
 # 固化 mobilenetv2 模型
 
 import tensorflow as tf
-from core.yolov3_mobilenetv2 import YOLOV3
+from core.yolov3_mobilenetv2 import YOLOV3   #使用Mobil的backbone
 
 def model_freeze(pb_file, ckpt_file):
     with tf.name_scope('input'):
