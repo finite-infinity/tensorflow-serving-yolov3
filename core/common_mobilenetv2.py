@@ -103,8 +103,8 @@ def inverted_residual(name, input_data, input_c, output_c, trainable, downsample
 
 
 def separable_conv(name, input_data, input_c, output_c, trainable, downsample=False):
-    with tf.variable_scope(name):
-        with tf.variable_scope('depthwise'):
+    with tf.variable_scope(name): #将一个卷积分为两步
+        with tf.variable_scope('depthwise'):  #深度卷积
             if downsample:
                 pad_data = tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]])
                 input_data = tf.pad(input_data, pad_data, 'CONSTANT')
@@ -116,11 +116,11 @@ def separable_conv(name, input_data, input_c, output_c, trainable, downsample=Fa
             dwise_weight = tf.get_variable(name='depthwise_weights', dtype=tf.float32, trainable=True,
                                            shape=(3, 3, input_c, 1),
                                            initializer=tf.random_normal_initializer(stddev=0.01))
-            dwise_conv = tf.nn.depthwise_conv2d(input=input_data, filter=dwise_weight, strides=strides, padding=padding)
+            dwise_conv = tf.nn.depthwise_conv2d(input=input_data, filter=dwise_weight, strides=strides, padding=padding)  #深度卷积，filter与input一一对应
             dwise_conv = batch_normalization(input_data=dwise_conv, input_c=input_c, trainable=trainable)
-            dwise_conv = tf.nn.relu6(dwise_conv)
+            dwise_conv = tf.nn.relu6(dwise_conv)  #relu限制最大输出值为6
 
-        with tf.variable_scope('pointwise'):
+        with tf.variable_scope('pointwise'):  #常规卷积
             pwise_weight = tf.get_variable(name='pointwise_weights', dtype=tf.float32, trainable=True,
                                            shape=(1, 1, input_c, output_c),
                                            initializer=tf.random_normal_initializer(stddev=0.01))
