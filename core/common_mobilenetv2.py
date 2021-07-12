@@ -58,12 +58,14 @@ def group_normalization(input_data, input_channel, num_group=32, eps=1e-5):
     return scale * input_data + shift
 
 
+#mobilenetv2中的倒残差（原本沙漏形变为梭形）
 def inverted_residual(name, input_data, input_c, output_c, trainable, downsample=False, t=6):
     with tf.variable_scope(name):
         expand_c = t * input_c
 
         with tf.variable_scope('expand'):
             if t > 1:
+                #扩张层，深度卷积前加了一层pointwise（常规）卷积
                 expand_weight = tf.get_variable(name='weights', dtype=tf.float32, trainable=True,
                                                 shape=(1, 1, input_c, expand_c),
                                                 initializer=tf.random_normal_initializer(stddev=0.01))
@@ -90,7 +92,7 @@ def inverted_residual(name, input_data, input_c, output_c, trainable, downsample
             dwise_conv = batch_normalization(input_data=dwise_conv, input_c=expand_c, trainable=trainable)
             dwise_conv = tf.nn.relu6(dwise_conv)
 
-        with tf.variable_scope('project'):
+        with tf.variable_scope('project'):#pointwise卷积
             pwise_weight = tf.get_variable(name='weights', dtype=tf.float32, trainable=True,
                                            shape=(1, 1, expand_c, output_c),
                                            initializer=tf.random_normal_initializer(stddev=0.01))
