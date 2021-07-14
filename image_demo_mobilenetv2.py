@@ -5,6 +5,11 @@ import cv2
 import numpy as np
 import core.utils as utils
 import tensorflow as tf
+
+if int(tf.__version__[0]) > 1:     
+    import tensorflow.compat.v1 as tf
+    tf.disable_v2_behavior()
+    
 from PIL import Image
 
 def read_pb_return_tensors_mobilenet(graph, pb_file, ori_return_elements): # mobilenet 的tensor处理
