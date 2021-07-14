@@ -1,0 +1,26 @@
+<annotation verified="yes">
+	<folder>all</folder>
+	<filename>hive_b827eb2e2e6c_20210404124407.jpg</filename>
+	<path>C:\Users\coco\Desktop\蜜蜂识别\all\hive_b827eb2e2e6c_20210404124407.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>2048</width>
+		<height>1536</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>bee</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1103</xmin>
+			<ymin>705</ymin>
+			<xmax>1125</xmax>
+			<ymax>738</ymax>
+		</bndbox>
+	</object>
+</annotation>
