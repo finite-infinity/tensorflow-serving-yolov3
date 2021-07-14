@@ -3,6 +3,11 @@
 # 固化 mobilenetv2 模型
 
 import tensorflow as tf
+
+if int(tf.__version__[0]) > 1:     
+    import tensorflow.compat.v1 as tf
+    tf.disable_v2_behavior()
+    
 from core.yolov3_mobilenetv2 import YOLOV3   #使用Mobil的backbone
 
 def model_freeze(pb_file, ckpt_file):
