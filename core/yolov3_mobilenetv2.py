@@ -54,9 +54,9 @@ class YOLOV3(object):
             """
             # hand-coded the dimensions: if 608, use 19; if 416, use 13
             with tf.variable_scope('pred_multi_scale'):
-                self.pred_multi_scale = tf.concat([tf.reshape(self.pred_sbbox, [-1, 19, 19, 85]),
-                                                   tf.reshape(self.pred_mbbox, [-1, 19, 19, 85]),
-                                                   tf.reshape(self.pred_lbbox, [-1, 19, 19, 85])], axis=0,
+                self.pred_multi_scale = tf.concat([tf.reshape(self.pred_sbbox, [-1, 19, 19, 6]),
+                                                   tf.reshape(self.pred_mbbox, [-1, 19, 19, 6]),
+                                                   tf.reshape(self.pred_lbbox, [-1, 19, 19, 6])], axis=0,
                                                   name='concat')
             # 说明,如果训练自己的数据集,将85改成 数据集里面的  类别数+5 ,再进行模型转化
 
@@ -173,7 +173,7 @@ class YOLOV3(object):
 
 
     def bbox_giou(self, boxes1, boxes2):
-
+        #把box变成（x_min, y_min, x_max, y_max）的形式
         boxes1 = tf.concat([boxes1[..., :2] - boxes1[..., 2:] * 0.5,
                             boxes1[..., :2] + boxes1[..., 2:] * 0.5], axis=-1)
         boxes2 = tf.concat([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
@@ -198,7 +198,7 @@ class YOLOV3(object):
         enclose_left_up = tf.minimum(boxes1[..., :2], boxes2[..., :2])
         enclose_right_down = tf.maximum(boxes1[..., 2:], boxes2[..., 2:])
         enclose = tf.maximum(enclose_right_down - enclose_left_up, 0.0)
-        enclose_area = enclose[..., 0] * enclose[..., 1]
+        enclose_area = enclose[..., 0] * enclose[..., 1]  #两个box叠成的w*h
         giou = iou - 1.0 * (enclose_area - union_area) / tf.maximum(enclose_area, 1e-12)
         # 避免学习率设置高了，出现NAN的情况
         return giou
