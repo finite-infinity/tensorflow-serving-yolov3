@@ -5,6 +5,10 @@
 import core.common_mobilenetv2 as common
 import tensorflow as tf
 
+if int(tf.__version__[0]) > 1:     
+    import tensorflow.compat.v1 as tf
+    tf.disable_v2_behavior()
+
 
 # 定义 MobilenetV2 backbone
 
