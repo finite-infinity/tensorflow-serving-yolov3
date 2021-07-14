@@ -148,7 +148,8 @@ class Dataset(object):
         image_path = line[0]
         if not os.path.exists(image_path):
             raise KeyError("%s does not exist ... " %image_path)
-        image = np.array(cv2.imread(image_path))
+        image = cv2.imread(image_path)
+        image = np.array(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         bboxes = np.array([list(map(int, box.split(','))) for box in line[1:]])
 
         if self.data_aug:
