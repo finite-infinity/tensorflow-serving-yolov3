@@ -6,6 +6,11 @@ import time
 import shutil
 import numpy as np
 import tensorflow as tf
+
+if int(tf.__version__[0]) > 1:     
+    import tensorflow.compat.v1 as tf
+    tf.disable_v2_behavior()
+    
 import core.utils as utils
 from tqdm import tqdm
 from core.dataset import Dataset
@@ -179,7 +184,8 @@ class YoloTrain(object):
             log_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
             print("=> Epoch: %2d Time: %s Train loss: %.2f Test loss: %.2f Saving %s ..."
                             %(epoch, log_time, train_epoch_loss, test_epoch_loss, ckpt_file))
-            self.saver.save(self.sess, ckpt_file, global_step=epoch)
+            if epoch % 50 ==0:
+                self.saver.save(self.sess, ckpt_file, global_step=epoch)
 
 
 if __name__ == '__main__':
