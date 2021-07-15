@@ -82,14 +82,14 @@ if __name__ == "__main__":
     # 定义基本参数变量
     ori_return_elements = ["input/input_data:0", "pred_sbbox/concat_2:0", "pred_mbbox/concat_2:0", "pred_lbbox/concat_2:0"]
 
-    pb_file = "./checkpoint/yolov3_stu.pb"  # "./checkpoint/yolov3_helmet.pb"   # 预测文件路径
+    pb_file = "./checkpoint/yolov3_mobilenetv2.pb"  # "./checkpoint/yolov3_helmet.pb"   # 预测文件路径
     output_path = './demo.jpg'
     num_classes = 2  # 类别数
     input_size = 416
     graph = tf.Graph()
 
     # image_path = "./docs/normal_images/000000000080.jpg" # 这里输入预测图片路径
-    image_path = "./VOC2007/JPEGImages/0.jpg"  # 这里输入预测图片路径
+    image_path = "./docs/normal_images/000018.jpg"  # 这里输入预测图片路径
 
     predict(image_path)
 
