@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     pb_file = "./checkpoint/yolov3_mobilenetv2.pb"  # "./checkpoint/yolov3_helmet.pb"   # 预测文件路径
     output_path = './demo.jpg'
-    num_classes = 2  # 类别数
+    num_classes = 1  # 类别数
     input_size = 416
     graph = tf.Graph()
 
