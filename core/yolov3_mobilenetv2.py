@@ -204,7 +204,10 @@ class YOLOV3(object):
         enclose_right_down = tf.maximum(boxes1[..., 2:], boxes2[..., 2:])
         enclose = tf.maximum(enclose_right_down - enclose_left_up, 0.0)
         enclose_area = enclose[..., 0] * enclose[..., 1]  #两个box叠成的w*h
-        giou = iou - 1.0 * (enclose_area - union_area) / tf.maximum(enclose_area, 1e-12)
+        # giou l1 smooth
+        smoothed_giou = lambda x: 0.5*x*x if abs(x)<1 else abs(x)-0.5
+        giou = smoothed_giou(iou - 1.0 * (enclose_area - union_area) / tf.maximum(enclose_area, 1e-12))
+        # giou = iou - 1.0 * (enclose_area - union_area) / tf.maximum(enclose_area, 1e-12)
         # 避免学习率设置高了，出现NAN的情况
         return giou
 
