@@ -161,17 +161,17 @@ class YOLOV3(object):
         xy_grid = tf.tile(xy_grid[tf.newaxis, :, :, tf.newaxis, :], [batch_size, 1, 1, gt_per_grid, 1])
         xy_grid = tf.cast(xy_grid, tf.float32)
 
-        pred_xy = (tf.sigmoid(conv_raw_dx1dy1) + xy_grid) * stride
+        # pred_xy = (tf.sigmoid(conv_raw_dx1dy1) + xy_grid) * stride
         # tf.exp() scales the anchors larger or smaller or changes the shape
-        pred_wh = (tf.exp(conv_raw_dx2dy2) * anchors) * stride
-        pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
-        # pred_xymin = (xy_grid + 0.5 - tf.exp(conv_raw_dx1dy1)) * stride   #更新xymin，用exp(dxdy)而非1/(1+exp-(dxdy))
-        # pred_xymax = (xy_grid + 0.5 + tf.exp(conv_raw_dx2dy2)) * stride   #更新xymax
-        
-        # pred_xy = tf.add(pred_xymin[...,0:1], pred_xymax[...,0:1]) * 0.5
-        # pred_wh = tf.subtract(pred_xymax[...,0:1], pred_xymin[...,0:1])
-        
+        # pred_wh = (tf.exp(conv_raw_dx2dy2) * anchors) * stride
         # pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
+        pred_xymin = (xy_grid + 0.5 - tf.exp(conv_raw_dx1dy1)) * stride   #更新xymin，用exp(dxdy)而非1/(1+exp-(dxdy))
+        pred_xymax = (xy_grid + 0.5 + tf.exp(conv_raw_dx2dy2)) * stride   #更新xymax
+        
+        pred_xy = tf.add(pred_xymin[...,0:1], pred_xymax[...,0:1]) * 0.5
+        pred_wh = tf.subtract(pred_xymax[...,0:1], pred_xymin[...,0:1])
+        
+        pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
         pred_conf = tf.sigmoid(conv_raw_conf)
 
         pred_prob = tf.sigmoid(conv_raw_prob)
