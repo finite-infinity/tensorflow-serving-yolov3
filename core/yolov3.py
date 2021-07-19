@@ -57,7 +57,7 @@ class YOLOV3(object):
     def __build_nework(self, input_data):
 
 
-        route_1, route_2, input_data = backbone.darknet53(input_data, self.trainable)
+        route_1, route_2, input_data = backbone.darknet53(input_data, self.trainable)  #特征提取
         
         # input_data is -1*13*13*1024
         input_data = common.convolutional(input_data, (1, 1, 1024,  512), self.trainable, 'conv52')
@@ -106,9 +106,10 @@ class YOLOV3(object):
                                           trainable=self.trainable, name='conv_sbbox', activate=False, bn=False)
         
         # dimensions are: -1*13*13*255, -1*26*26*255, -1*52*52*255
+        #卷积越卷越小，形成大中小三个预测框，维度不变,3*(num_class+5),三个anchor  reshape后代表（anchor,(x,y,w,h,conf,class_prob)）
         return conv_lbbox, conv_mbbox, conv_sbbox
 
-    def decode(self, conv_output, anchors, stride):
+    def decode(self, conv_output, anchors, stride):  #把network生成的大中小预测框解码
         """
         return tensor of shape [batch_size, output_size, output_size, anchor_per_scale, 5 + num_classes]
                contains (x, y, w, h, score, probability)
@@ -116,9 +117,9 @@ class YOLOV3(object):
 
         conv_shape       = tf.shape(conv_output)
         batch_size       = conv_shape[0]
-        output_size      = conv_shape[1]
-        # number of anchors
-        anchor_per_scale = len(anchors)
+        output_size      = conv_shape[1]   #保持batch_size和大小
+        
+        anchor_per_scale = len(anchors)    #锚点数（每个锚点都有置信度（score））
 
         conv_output = tf.reshape(conv_output, (batch_size, output_size, output_size, anchor_per_scale, 5 + self.num_class))
 
@@ -129,7 +130,7 @@ class YOLOV3(object):
         
         # tf.tile creates a new tensor by replicating input m time
         y = tf.tile(tf.range(output_size, dtype=tf.int32)[:, tf.newaxis], [1, output_size])
-        x = tf.tile(tf.range(output_size, dtype=tf.int32)[tf.newaxis, :], [output_size, 1])
+        x = tf.tile(tf.range(output_size, dtype=tf.int32)[tf.newaxis, :], [output_size, 1])  #制作网格 多一维以便xy轴合并
 
         xy_grid = tf.concat([x[:, :, tf.newaxis], y[:, :, tf.newaxis]], axis=-1)
         xy_grid = tf.tile(xy_grid[tf.newaxis, :, :, tf.newaxis, :], [batch_size, 1, 1, anchor_per_scale, 1])
