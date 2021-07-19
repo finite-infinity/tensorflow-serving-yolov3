@@ -39,15 +39,15 @@ class YOLOV3(object):
                 raise NotImplementedError("Can not build up yolov3 network!")
 
             with tf.variable_scope('pred_sbbox'):
-                self.pred_sbbox = self.decode_mobile(conv_output=self.conv_sbbox, num_classes=self.num_class,
+                self.pred_sbbox = self.decode_mobile(conv_output=self.conv_sbbox, anchors=self.anchors, num_classes=self.num_class,
                                                      stride=self.strides[0])
 
             with tf.variable_scope('pred_mbbox'):
-                self.pred_mbbox = self.decode_mobile(conv_output=self.conv_mbbox, num_classes=self.num_class,
+                self.pred_mbbox = self.decode_mobile(conv_output=self.conv_mbbox, anchors=self.anchors, num_classes=self.num_class,
                                                      stride=self.strides[1])
 
             with tf.variable_scope('pred_lbbox'):
-                self.pred_lbbox = self.decode_mobile(conv_output=self.conv_lbbox, num_classes=self.num_class,
+                self.pred_lbbox = self.decode_mobile(conv_output=self.conv_lbbox, anchors=self.anchors, num_classes=self.num_class,
                                                      stride=self.strides[2])
 
 
@@ -142,36 +142,41 @@ class YOLOV3(object):
         return conv_lbbox, conv_mbbox, conv_sbbox
 
 
-    def decode_mobile(self, conv_output, num_classes, stride):
+    def decode_mobile(self, conv_output, anchors, num_classes, stride):
 
         conv_shape = tf.shape(conv_output)
         batch_size = conv_shape[0]
         output_size = conv_shape[1]
-        gt_per_grid = conv_shape[3] // (5 + num_classes)   #相当于anchor_per_scale
+        gt_per_grid = conv_shape[3] // (5 + num_classes)
 
         conv_output = tf.reshape(conv_output, (batch_size, output_size, output_size, gt_per_grid, 5 + num_classes))
-        conv_raw_dx1dy1 = conv_output[:, :, :, :, 0:2]  #xy
-        conv_raw_dx2dy2 = conv_output[:, :, :, :, 2:4]  #wh
-        conv_raw_conf = conv_output[:, :, :, :, 4:5]    #置信区间？
-        conv_raw_prob = conv_output[:, :, :, :, 5:]     #特征概率
+        conv_raw_dx1dy1 = conv_output[:, :, :, :, 0:2]  
+        conv_raw_dx2dy2 = conv_output[:, :, :, :, 2:4]  
+        conv_raw_conf = conv_output[:, :, :, :, 4:5]
+        conv_raw_prob = conv_output[:, :, :, :, 5:]
 
         y = tf.tile(tf.range(output_size, dtype=tf.int32)[:, tf.newaxis], [1, output_size])
-        x = tf.tile(tf.range(output_size, dtype=tf.int32)[tf.newaxis, :], [output_size, 1])  #画网格
+        x = tf.tile(tf.range(output_size, dtype=tf.int32)[tf.newaxis, :], [output_size, 1])
         xy_grid = tf.concat([x[:, :, tf.newaxis], y[:, :, tf.newaxis]], axis=-1)
         xy_grid = tf.tile(xy_grid[tf.newaxis, :, :, tf.newaxis, :], [batch_size, 1, 1, gt_per_grid, 1])
-        xy_grid = tf.cast(xy_grid, tf.float32)  #制作好网格
+        xy_grid = tf.cast(xy_grid, tf.float32)
+
+        pred_xy = (tf.sigmoid(conv_raw_dx1dy1) + xy_grid) * stride
+        # tf.exp() scales the anchors larger or smaller or changes the shape
+        pred_wh = (tf.exp(conv_raw_dx2dy2) * anchors) * stride
+        pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
+        # pred_xymin = (xy_grid + 0.5 - tf.exp(conv_raw_dx1dy1)) * stride   #更新xymin，用exp(dxdy)而非1/(1+exp-(dxdy))
+        # pred_xymax = (xy_grid + 0.5 + tf.exp(conv_raw_dx2dy2)) * stride   #更新xymax
         
-        #*stride 还原到原图的坐标
-        #这里改变xymax而非wh控制anchor大小
-        pred_xymin = (xy_grid + 0.5 - tf.exp(conv_raw_dx1dy1)) * stride   #更新xymin，用exp(dxdy)而非1/(1+exp-(dxdy))
-        pred_xymax = (xy_grid + 0.5 + tf.exp(conv_raw_dx2dy2)) * stride   #更新xymax
-        pred_corner = tf.concat([pred_xymin, pred_xymax], axis=-1)        #box坐标（xymin,xymax）
+        # pred_xy = tf.add(pred_xymin[...,0:1], pred_xymax[...,0:1]) * 0.5
+        # pred_wh = tf.subtract(pred_xymax[...,0:1], pred_xymin[...,0:1])
+        
+        # pred_xywh = tf.concat([pred_xy, pred_wh], axis=-1)
+        pred_conf = tf.sigmoid(conv_raw_conf)
 
-        pred_conf = tf.sigmoid(conv_raw_conf)        #锚点置信
+        pred_prob = tf.sigmoid(conv_raw_prob)
 
-        pred_prob = tf.sigmoid(conv_raw_prob)        #class预测概率
-
-        pred_bbox = tf.concat([pred_corner, pred_conf, pred_prob], axis=-1) #输出（[（xmin,ymin）,(xmax,ymax)],conf,prob）
+        pred_bbox = tf.concat([pred_xywh, pred_conf, pred_prob], axis=-1)
         return pred_bbox
 
     def focal(self, target, actual, alpha=1, gamma=2):
@@ -180,7 +185,17 @@ class YOLOV3(object):
 
 
     def bbox_giou(self, boxes1, boxes2):
-        #把box变成（x_min, y_min, x_max, y_max）的形式
+
+        boxes1 = tf.concat([boxes1[..., :2] - boxes1[..., 2:] * 0.5,
+                            boxes1[..., :2] + boxes1[..., 2:] * 0.5], axis=-1)
+        boxes2 = tf.concat([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
+                            boxes2[..., :2] + boxes2[..., 2:] * 0.5], axis=-1)
+
+        boxes1 = tf.concat([tf.minimum(boxes1[..., :2], boxes1[..., 2:]),
+                            tf.maximum(boxes1[..., :2], boxes1[..., 2:])], axis=-1)
+        boxes2 = tf.concat([tf.minimum(boxes2[..., :2], boxes2[..., 2:]),
+                            tf.maximum(boxes2[..., :2], boxes2[..., 2:])], axis=-1)
+
         boxes1_area = (boxes1[..., 2] - boxes1[..., 0]) * (boxes1[..., 3] - boxes1[..., 1])
         boxes2_area = (boxes2[..., 2] - boxes2[..., 0]) * (boxes2[..., 3] - boxes2[..., 1])
 
@@ -195,18 +210,20 @@ class YOLOV3(object):
         enclose_left_up = tf.minimum(boxes1[..., :2], boxes2[..., :2])
         enclose_right_down = tf.maximum(boxes1[..., 2:], boxes2[..., 2:])
         enclose = tf.maximum(enclose_right_down - enclose_left_up, 0.0)
-        enclose_area = enclose[..., 0] * enclose[..., 1]  #两个box叠成的w*h
-        # giou l1 smooth
-        smoothed_giou = lambda x: 0.5*x*x if abs(x)<1 else abs(x)-0.5
-        giou = smoothed_giou(iou - 1.0 * (enclose_area - union_area) / tf.maximum(enclose_area, 1e-12))
-        # giou = iou - 1.0 * (enclose_area - union_area) / tf.maximum(enclose_area, 1e-12)
+        enclose_area = enclose[..., 0] * enclose[..., 1]
+        giou = iou - 1.0 * (enclose_area - union_area) / tf.maximum(enclose_area, 1e-12)
         # 避免学习率设置高了，出现NAN的情况
         return giou
 
     def bbox_iou(self, boxes1, boxes2):
 
-        boxes1_area = (boxes1[..., 2] - boxes1[..., 0]) * (boxes1[..., 3] - boxes1[..., 1])
-        boxes2_area = (boxes2[..., 2] - boxes2[..., 0]) * (boxes2[..., 3] - boxes2[..., 1])
+        boxes1_area = boxes1[..., 2] * boxes1[..., 3]
+        boxes2_area = boxes2[..., 2] * boxes2[..., 3]
+
+        boxes1 = tf.concat([boxes1[..., :2] - boxes1[..., 2:] * 0.5,
+                            boxes1[..., :2] + boxes1[..., 2:] * 0.5], axis=-1)
+        boxes2 = tf.concat([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
+                            boxes2[..., :2] + boxes2[..., 2:] * 0.5], axis=-1)
 
         left_up = tf.maximum(boxes1[..., :2], boxes2[..., :2])
         right_down = tf.minimum(boxes1[..., 2:], boxes2[..., 2:])
@@ -231,21 +248,20 @@ class YOLOV3(object):
         conv_raw_conf = conv[:, :, :, :, 4:5]
         conv_raw_prob = conv[:, :, :, :, 5:]
 
-        pred_xy = pred[:, :, :, :, 0:4]
+        pred_xywh = pred[:, :, :, :, 0:4]
         pred_conf = pred[:, :, :, :, 4:5]
 
-        label_xy = label[:, :, :, :, 0:4]
+        label_xywh = label[:, :, :, :, 0:4]
         respond_bbox = label[:, :, :, :, 4:5]
         label_prob = label[:, :, :, :, 5:]
 
-        giou = tf.expand_dims(self.bbox_giou(pred_xy, label_xy), axis=-1)
+        giou = tf.expand_dims(self.bbox_giou(pred_xywh, label_xywh), axis=-1)
         input_size = tf.cast(input_size, tf.float32)
-        
-        #pred(w)*lable(h)
-        bbox_loss_scale = 2.0 - 1.0 * (label_xy[:, :, :, :, 2:3]-label_xy[:, :, :, :, 0:1]) *(label_xy[:, :, :, :, 3:4]-label_xy[:, :, :, :, 1:2]) / (input_size ** 2)
+
+        bbox_loss_scale = 2.0 - 1.0 * label_xywh[:, :, :, :, 2:3] * label_xywh[:, :, :, :, 3:4] / (input_size ** 2)
         giou_loss = respond_bbox * bbox_loss_scale * (1 - giou)
 
-        iou = self.bbox_iou(pred_xy[:, :, :, :, np.newaxis, :], bboxes[:, np.newaxis, np.newaxis, np.newaxis, :, :])
+        iou = self.bbox_iou(pred_xywh[:, :, :, :, np.newaxis, :], bboxes[:, np.newaxis, np.newaxis, np.newaxis, :, :])
         max_iou = tf.expand_dims(tf.reduce_max(iou, axis=-1), axis=-1)
 
         respond_bgd = (1.0 - respond_bbox) * tf.cast(max_iou < self.iou_loss_thresh, tf.float32)
@@ -269,7 +285,7 @@ class YOLOV3(object):
     def compute_loss(self, label_sbbox, label_mbbox, label_lbbox, true_sbbox, true_mbbox, true_lbbox):
 
         with tf.name_scope('smaller_box_loss'):
-            
+            #
             loss_sbbox = self.loss_layer(self.conv_sbbox, self.pred_sbbox, label_sbbox, true_sbbox,
                                          anchors=self.anchors[0], stride=self.strides[0])
 
@@ -291,3 +307,4 @@ class YOLOV3(object):
             prob_loss = loss_sbbox[2] + loss_mbbox[2] + loss_lbbox[2]
 
         return giou_loss, conf_loss, prob_loss
+
